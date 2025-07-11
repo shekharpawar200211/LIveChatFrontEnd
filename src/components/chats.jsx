@@ -8,6 +8,12 @@ function ChatElement() {
   const userId = location.state?.userId;
 
   const [recieverName, setRecieverName] = useState("");
+  const recieverNameRef = useRef(recieverName);
+
+  useEffect(() => {
+    recieverNameRef.current = recieverName;
+  }, [recieverName]);
+
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState([]);
   const [chatId, setChatId] = useState("");
@@ -18,8 +24,8 @@ function ChatElement() {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [matchedUsers, setMatchedUsers] = useState([]);
-  const [notification, setNoti] = useState(0);
-  const [friendsNotifactions, setFriendsNoti] = useState([]);
+
+  const [friendsNotifications, setFriendsNotifications] = useState([]);
   const [showNotificationModal, setShowNotificationModal] = useState(false);
 
   const socketRef = useRef(null);
@@ -28,20 +34,19 @@ function ChatElement() {
     const socket = createSocket(user);
 
     socket.on("message", (message) => {
-      if (message.senderName === recieverName) {
+      if (message.senderName === recieverNameRef.current) {
+        // message from current chat partner
         setMessages((prev) => [
           ...prev,
           { text: message.input, sender: "receiver" },
         ]);
       } else {
-        setFriendsNoti((prev) => {
-          const uniqueSenders = new Set(prev);
-          uniqueSenders.add(message.senderName);
-          const updatedArray = Array.from(uniqueSenders);
-          console.log("Updated friendsNotifactions:", updatedArray);
-          return updatedArray;
+        setFriendsNotifications((prev) => {
+          if (!prev.includes(message.senderName)) {
+            return [...prev, message.senderName];
+          }
+          return prev;
         });
-        setNoti((prev) => prev + 1);
       }
     });
 
@@ -51,20 +56,6 @@ function ChatElement() {
       socket.disconnect();
     };
   }, [user]);
-
-  function handleMessage() {
-    if (socketRef.current && input.trim()) {
-      socketRef.current.emit("message", {
-        user,
-        recieverName,
-        input,
-        chatId,
-      });
-
-      setMessages((prev) => [...prev, { text: input, sender: "me" }]);
-      setInput("");
-    }
-  }
 
   async function getChat(name) {
     if (!name) return;
@@ -83,6 +74,20 @@ function ChatElement() {
     setChatId(res.chatId);
   }
 
+  function handleMessage() {
+    if (socketRef.current && input.trim()) {
+      socketRef.current.emit("message", {
+        user,
+        recieverName,
+        input,
+        chatId,
+      });
+
+      setMessages((prev) => [...prev, { text: input, sender: "me" }]);
+      setInput("");
+    }
+  }
+
   async function fetchFriends() {
     let res = await fetch(`http://localhost:9899/chats/friends/${user}`);
     res = await res.json();
@@ -94,14 +99,20 @@ function ChatElement() {
   async function handleFriendClick(friendName) {
     setRecieverName(friendName);
     setShowFriends(false);
-    await getChat(friendName);
   }
+
+  useEffect(() => {
+    if (recieverName) {
+      getChat(recieverName);
+      // clear notifications for this user if present
+      setFriendsNotifications((prev) => prev.filter((n) => n !== recieverName));
+    }
+  }, [recieverName]);
 
   async function searchUsers(query) {
     let res = await fetch(`http://localhost:9899/chats/search-users/${query}`);
     res = await res.json();
     setMatchedUsers(res.users || []);
-    setAddFriends(false);
   }
 
   async function addNewFriend(friendName) {
@@ -112,7 +123,6 @@ function ChatElement() {
     res = await res.json();
 
     setRecieverName(friendName);
-    await getChat(friendName);
     setAddFriends(false);
     setSearchQuery("");
     setMatchedUsers(res.users || []);
@@ -120,15 +130,9 @@ function ChatElement() {
 
   return (
     <div style={{ padding: "20px" }}>
-      <h2 style={{ color: "#007bff" }}>{recieverName}</h2>
+      <h2 style={{ color: "#007bff" }}>{recieverName || " "}</h2>
 
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "flex-end",
-          gap: "10px",
-        }}
-      >
+      <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px" }}>
         <button
           onClick={() => setAddFriends(true)}
           style={{
@@ -171,7 +175,7 @@ function ChatElement() {
           >
             Notification
           </button>
-          {notification > 0 && (
+          {friendsNotifications.length > 0 && (
             <span
               style={{
                 position: "absolute",
@@ -185,7 +189,7 @@ function ChatElement() {
                 fontWeight: "bold",
               }}
             >
-              {notification}
+              {friendsNotifications.length}
             </span>
           )}
         </div>
@@ -243,8 +247,6 @@ function ChatElement() {
             onChange={(e) => setInput(e.target.value)}
             style={{
               flexGrow: 1,
-              flexShrink: 1,
-              minWidth: 0,
               padding: "10px 12px",
               borderRadius: "30px",
               border: "1px solid #ccc",
@@ -339,6 +341,7 @@ function ChatElement() {
           </div>
         </div>
       )}
+
       {addFriends && (
         <div
           style={{
@@ -353,7 +356,6 @@ function ChatElement() {
             alignItems: "center",
             zIndex: 1000,
             padding: "10px",
-            boxSizing: "border-box",
           }}
         >
           <div
@@ -364,12 +366,16 @@ function ChatElement() {
               maxWidth: "400px",
               width: "100%",
               textAlign: "center",
-              boxSizing: "border-box",
             }}
           >
             <h2>Add a Friend</h2>
-
-            <div style={{ display: "flex", gap: "10px", marginBottom: "15px" }}>
+            <div
+              style={{
+                display: "flex",
+                gap: "10px",
+                marginBottom: "15px",
+              }}
+            >
               <input
                 type="text"
                 value={searchQuery}
@@ -479,24 +485,12 @@ function ChatElement() {
             }}
           >
             <h2>New Messages From:</h2>
-            {friendsNotifactions.length > 0 ? (
-              friendsNotifactions.map((name, idx) => (
+            {friendsNotifications.length > 0 ? (
+              friendsNotifications.map((name, idx) => (
                 <div key={idx} style={{ margin: "10px 0" }}>
                   <button
-                    onClick={async () => {
+                    onClick={() => {
                       setRecieverName(name);
-                      await getChat(name);
-
-                      setFriendsNoti((prev) => {
-                        const updated = prev.filter((n) => n !== name);
-                        if (updated.length === 0) {
-                          setNoti(0);
-                        } else {
-                          setNoti((prev) => prev - 1);
-                        }
-                        return updated;
-                      });
-
                       setShowNotificationModal(false);
                     }}
                     style={{

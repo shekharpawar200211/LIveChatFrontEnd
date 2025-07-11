@@ -35,7 +35,9 @@ function NewUser() {
     });
     const data = await response.json();
     if (data.success) {
-      navigate("/chat", { state: { user: username } });
+      navigate("/chat", {
+        state: { user: username, userId: response.userId },
+      });
     } else {
       alert("user already exist");
     }

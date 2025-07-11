@@ -18,7 +18,7 @@ function Chat() {
             </>
           }
         />
-        <Route path="/new-user" element={<NewUser/>} />
+        <Route path="/new-user" element={<NewUser />} />
       </Routes>
     </BrowserRouter>
   );
