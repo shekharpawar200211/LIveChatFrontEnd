@@ -35,7 +35,6 @@ function ChatElement() {
 
     socket.on("message", (message) => {
       if (message.senderName === recieverNameRef.current) {
-        // message from current chat partner
         setMessages((prev) => [
           ...prev,
           { text: message.input, sender: "receiver" },
@@ -104,7 +103,6 @@ function ChatElement() {
   useEffect(() => {
     if (recieverName) {
       getChat(recieverName);
-      // clear notifications for this user if present
       setFriendsNotifications((prev) => prev.filter((n) => n !== recieverName));
     }
   }, [recieverName]);
