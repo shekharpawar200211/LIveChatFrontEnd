@@ -1,0 +1,19 @@
+.input {
+  width: 100px;
+  border: 1px solid black;
+  height: 20px;
+  border-radius: 10px;
+}
+.headings {
+  color: darkorange;
+  font: bold;
+  font-family: "Franklin Gothic Medium", "Arial Narrow", Arial, sans-serif;
+  font-size: xx-large;
+}
+html,
+body {
+  margin: 0;
+  padding: 0;
+  /* color: mistyrose; */
+  background-color: mistyrose;
+}
